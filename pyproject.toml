@@ -1,0 +1,14 @@
+[project]
+name = "prompt-test-arena"
+version = "0.1.0"
+description = "A local Prompt A/B testing arena with FastAPI and OpenAI-compatible model calls."
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "openai>=1.40.0",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.uv]
+package = false

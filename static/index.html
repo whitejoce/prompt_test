@@ -1,0 +1,1760 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>系统提示词 A/B 试炼场</title>
+  <script>
+    (() => {
+      try {
+        if (localStorage.getItem("promptArena.configCollapsed") === "true") {
+          document.documentElement.dataset.configCollapsed = "true";
+        }
+      } catch {
+        // localStorage can be unavailable in locked-down browser contexts.
+      }
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --line: #d9dee7;
+      --text: #18202c;
+      --muted: #667085;
+      --accent: #1f7a5a;
+      --accent-strong: #146047;
+      --danger: #b42318;
+      --blue: #2458a6;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    header {
+      padding: 14px 22px;
+      background: #263238;
+      color: #fff;
+      border-bottom: 3px solid var(--accent);
+    }
+
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    h2 { margin: 0 0 10px; font-size: 15px; }
+    h3 { margin: 0 0 8px; font-size: 13px; }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 480px);
+      min-height: calc(100vh - 57px);
+    }
+
+    section.workspace {
+      padding: 16px;
+      overflow: auto;
+    }
+
+    aside {
+      padding: 16px;
+      background: #eef1f4;
+      border-left: 1px solid var(--line);
+      overflow: auto;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .panel.compact {
+      padding-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      margin: 9px 0 5px;
+      color: #344054;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid #c8d0dc;
+      border-radius: 6px;
+      padding: 9px 10px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 84px;
+      white-space: pre-wrap;
+    }
+
+    .row { display: flex; gap: 10px; align-items: center; }
+    .row > * { flex: 1; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .toolbar-right { justify-content: flex-end; }
+
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 0;
+    }
+
+    .panel-heading h2 {
+      margin: 0;
+    }
+
+    .panel-heading .toolbar {
+      flex: 0 0 auto;
+    }
+
+    .collapse-toggle {
+      min-height: 30px;
+      min-width: 52px;
+      padding: 5px 9px;
+      font-size: 12px;
+    }
+
+    .panel-heading + .experiment-list,
+    .panel-heading + .panel-body {
+      margin-top: 10px;
+    }
+
+    html[data-config-collapsed="true"] #configBody,
+    .panel-body.collapsed {
+      display: none;
+    }
+
+    button {
+      border: 1px solid #c8d0dc;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      padding: 8px 11px;
+      font: inherit;
+      cursor: pointer;
+      min-height: 36px;
+    }
+
+    button:hover { border-color: #98a2b3; background: #f9fafb; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button.primary:hover { background: var(--accent-strong); }
+    button.blue { background: var(--blue); border-color: var(--blue); color: #fff; }
+    button.choice.active { outline: 2px solid var(--accent); border-color: var(--accent); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .status {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.error { color: var(--danger); }
+    .status.ok { color: var(--accent-strong); }
+
+    .prompt-grid, .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .comparison {
+      align-items: start;
+    }
+
+    .side {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .side-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+      font-weight: 700;
+    }
+
+    .side-score {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border: 1px solid #c8d0dc;
+      border-radius: 999px;
+      padding: 2px 9px;
+      background: #fff;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .side-score.score-a {
+      color: #0f5132;
+      background: #ecfdf3;
+      border-color: #86efac;
+    }
+
+    .side-score.score-b {
+      color: #1849a9;
+      background: #eff6ff;
+      border-color: #93c5fd;
+    }
+
+    .output {
+      padding: 12px;
+      word-break: break-word;
+    }
+
+    .output-meta {
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3,
+    .markdown-body h4,
+    .markdown-body h5,
+    .markdown-body h6 {
+      margin: 12px 0 8px;
+      line-height: 1.25;
+    }
+
+    .markdown-body h1 { font-size: 22px; }
+    .markdown-body h2 { font-size: 19px; }
+    .markdown-body h3 { font-size: 16px; }
+    .markdown-body p { margin: 8px 0; }
+    .markdown-body ul,
+    .markdown-body ol {
+      margin: 8px 0;
+      padding-left: 24px;
+    }
+
+    .markdown-body blockquote {
+      margin: 10px 0;
+      padding: 6px 10px;
+      border-left: 3px solid var(--line);
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
+    .markdown-body code {
+      padding: 2px 4px;
+      border-radius: 4px;
+      background: #eef1f4;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .markdown-body pre {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 6px;
+      background: #17202a;
+      color: #f8fafc;
+      white-space: pre;
+    }
+
+    .markdown-body pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .markdown-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 13px;
+    }
+
+    .markdown-body th,
+    .markdown-body td {
+      border: 1px solid var(--line);
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+
+    .markdown-body th { background: #f8fafc; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fbfcfd;
+    }
+
+    .evaluation-box {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #f8fbfa;
+    }
+
+    .evaluation-box.winner-b { border-left-color: var(--blue); background: #f7faff; }
+    .evaluation-box.winner-tie,
+    .evaluation-box.winner-neither { border-left-color: #98a2b3; background: #f9fafb; }
+
+    .evaluation-title {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .winner-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 22px;
+      border-radius: 999px;
+      padding: 0 8px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .winner-badge.winner-a {
+      color: #0f5132;
+      background: #d1fadf;
+      border: 1px solid #86efac;
+    }
+
+    .winner-badge.winner-b {
+      color: #1849a9;
+      background: #dbeafe;
+      border: 1px solid #93c5fd;
+    }
+
+    .winner-badge.winner-tie,
+    .winner-badge.winner-neither {
+      color: #344054;
+      background: #eef1f4;
+      border: 1px solid #c8d0dc;
+    }
+
+    .evaluation-summary {
+      margin: 0;
+      color: #263238;
+      line-height: 1.65;
+    }
+
+    .suggestions-box {
+      margin-top: 10px;
+      border: 1px solid #b7d8ca;
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #ffffff;
+    }
+
+    .suggestions-box h3 {
+      margin-bottom: 6px;
+      color: var(--accent-strong);
+    }
+
+    .suggestions-box p,
+    .suggestions-box ul {
+      margin: 0;
+    }
+
+    .suggestions-box ul {
+      padding-left: 18px;
+    }
+
+    .metric-score-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 4px;
+    }
+
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 26px;
+      border: 1px solid #d0d5dd;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #fff;
+      font-weight: 650;
+    }
+
+    .score-pill.score-high.score-a {
+      color: #0f5132;
+      background: #ecfdf3;
+      border-color: #86efac;
+    }
+
+    .score-pill.score-high.score-b {
+      color: #1849a9;
+      background: #eff6ff;
+      border-color: #93c5fd;
+    }
+
+    .history {
+      display: grid;
+      gap: 10px;
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    .history-round {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 8px;
+    }
+
+    .history-run {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin-top: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-run.active {
+      border-color: var(--accent);
+      outline: 2px solid rgba(31, 122, 90, 0.18);
+    }
+
+    .conversation-panel {
+      margin-top: 14px;
+    }
+
+    .conversation-heading-meta {
+      flex: 0 1 auto;
+      text-align: right;
+    }
+
+    .conversation-trace {
+      display: grid;
+      gap: 10px;
+      max-height: 560px;
+      overflow: auto;
+    }
+
+    .conversation-empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfd;
+    }
+
+    .conversation-turn {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      overflow: hidden;
+    }
+
+    .conversation-turn[open] {
+      background: #fff;
+    }
+
+    .conversation-turn summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .conversation-turn summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .conversation-turn summary::after {
+      content: "展开";
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .conversation-turn[open] summary::after {
+      content: "收起";
+    }
+
+    .conversation-summary-copy {
+      min-width: 0;
+    }
+
+    .conversation-summary-title {
+      display: block;
+      font-weight: 700;
+    }
+
+    .conversation-summary-input {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .conversation-body {
+      display: grid;
+      gap: 12px;
+      border-top: 1px solid var(--line);
+      padding: 12px;
+    }
+
+    .conversation-message {
+      min-width: 0;
+    }
+
+    .conversation-role {
+      margin-bottom: 5px;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .conversation-role.assistant-a {
+      color: var(--accent-strong);
+    }
+
+    .conversation-role.assistant-b {
+      color: var(--blue);
+    }
+
+    .conversation-content {
+      max-height: 300px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f8fafc;
+      padding: 10px;
+      word-break: break-word;
+    }
+
+    .conversation-content pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .conversation-assistant-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .experiment-list {
+      display: grid;
+      gap: 8px;
+      max-height: 164px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .experiment-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    .experiment-backup {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      text-align: left;
+      padding: 9px 10px;
+      background: #fbfcfd;
+      overflow: hidden;
+    }
+
+    .experiment-backup.active {
+      border-color: var(--accent);
+      outline: 2px solid rgba(31, 122, 90, 0.18);
+      background: #f5fbf8;
+    }
+
+    .backup-title,
+    .backup-meta,
+    .backup-goal,
+    .backup-dir {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .backup-title {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .backup-meta,
+    .backup-goal,
+    .backup-dir {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #experimentListStatus:empty {
+      display: none;
+    }
+
+    #configStatus:empty,
+    #runStatus:empty {
+      display: none;
+    }
+
+    #goal {
+      min-height: 78px;
+      height: 78px;
+    }
+
+    #currentInput {
+      min-height: 72px;
+      height: 72px;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      aside {
+        order: -1;
+        border-left: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .prompt-grid, .comparison { grid-template-columns: 1fr; }
+      .conversation-assistant-grid { grid-template-columns: 1fr; }
+      .toolbar-right { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>系统提示词 A/B 试炼场</h1>
+  </header>
+
+  <main>
+    <section class="workspace">
+      <div class="panel">
+        <h2>A/B 系统提示词</h2>
+        <div class="prompt-grid">
+          <div>
+            <label for="promptA">系统 Prompt A</label>
+            <textarea id="promptA" rows="8">你是专业客服。请用礼貌、简洁、负责的语气回复用户，并给出明确解决方案。</textarea>
+          </div>
+          <div>
+            <label for="promptB">系统 Prompt B</label>
+            <textarea id="promptB" rows="8">请作为客服专家回复用户。先表达理解，再说明处理步骤，最后给出后续承诺。</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel conversation-panel">
+        <div class="panel-heading">
+          <h2>轮内对话记录</h2>
+          <span id="conversationMeta" class="small muted conversation-heading-meta">尚未选择生成</span>
+        </div>
+        <div id="conversationTrace" class="conversation-trace"></div>
+      </div>
+
+      <div class="comparison">
+        <div class="side">
+          <div class="side-title"><span>Prompt A 输出</span><span id="scoreA"></span></div>
+          <div id="outputA" class="output markdown-body muted">等待生成 A 输出</div>
+        </div>
+        <div class="side">
+          <div class="side-title"><span>Prompt B 输出</span><span id="scoreB"></span></div>
+          <div id="outputB" class="output markdown-body muted">等待生成 B 输出</div>
+        </div>
+      </div>
+
+    </section>
+    
+
+    <aside>
+      <div class="panel">
+        <h2>生成历史</h2>
+        <div id="history" class="history"></div>
+      </div>
+      
+      
+      <div class="panel compact">
+        <h2>当前输入 Prompt</h2>
+        <label for="currentInput">本次输入 Prompt</label>
+        <textarea id="currentInput" rows="3">我收到的商品破损了，包装也被压坏了。</textarea>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="blue" id="generateBoth">同时生成</button>
+          <button id="createRound">新建迭代轮</button>
+        </div>
+        <p id="runStatus" class="status"></p>
+      </div>
+
+      <div class="panel">
+        <h2>AI 评价与人工选择</h2>
+        <div class="toolbar">
+          <button class="choice" data-choice="A">A 更好</button>
+          <button class="choice" data-choice="B">B 更好</button>
+          <button class="choice" data-choice="tie">持平</button>
+          <button class="choice" data-choice="neither">都不好</button>
+        </div>
+        <label for="humanNote">人工备注</label>
+        <textarea id="humanNote" rows="3" placeholder="记录为什么保留左边或右边"></textarea>
+        <div class="toolbar" style="margin-top:10px">
+          <button id="evaluate">AI评价</button>
+          <button class="primary" id="saveHumanChoice">保存人工选择</button>
+        </div>
+        <div id="evaluationSummary" class="muted">尚未评价</div>
+        <div id="evaluationSuggestions"></div>
+        <div id="dimensions" class="metric-grid"></div>
+        <details style="margin-top:12px">
+          <summary class="small muted">查看原始评价 JSON</summary>
+          <pre id="evaluationRaw">{}</pre>
+        </details>
+      </div>
+
+      <div class="panel">
+        <div class="panel-heading">
+          <h2>实验记录</h2>
+          <div class="toolbar">
+            <button id="newExperiment">新建实验</button>
+          </div>
+        </div>
+        <div id="experimentList" class="experiment-list"></div>
+        <p id="experimentListStatus" class="status"></p>
+      </div>
+
+      <div class="panel compact">
+        <div class="panel-heading">
+          <h2>实验配置</h2>
+          <button id="toggleConfig" class="collapse-toggle" type="button">收起</button>
+        </div>
+        <div id="configBody" class="panel-body">
+          <label for="name">实验名称</label>
+          <input id="name" value="系统提示词对比实验">
+          <label for="goal">实验目标</label>
+          <textarea id="goal">比较两个系统提示词在同一个输入 Prompt 下的输出质量。</textarea>
+          <div class="row">
+            <div>
+              <label for="model">模型</label>
+              <input id="model" placeholder="默认读取 OPENAI_MODEL">
+            </div>
+            <div>
+              <label for="temperature">Temperature</label>
+              <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7">
+            </div>
+          </div>
+          <label for="maxTokens">Max Tokens</label>
+          <input id="maxTokens" type="number" min="128" step="128" value="1000">
+          <p id="configStatus" class="status"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>实验工具</h2>
+        <div id="experimentId" class="small muted" style="margin-bottom:10px">未保存实验</div>
+        <div class="toolbar toolbar-right">
+          <button class="primary" id="saveExperiment">保存实验</button>
+          <button id="reloadExperiment">刷新</button>
+          <button id="exportJson">导出 JSON</button>
+          <button id="exportMd">导出 Markdown</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const state = {
+      experiment: null,
+      experiments: [],
+      rounds: [],
+      currentRoundId: "",
+      currentRunId: "",
+      outputA: "",
+      outputB: "",
+      evaluation: null,
+      humanChoice: "",
+      errors: [],
+      defaultModel: "",
+      loadingExperimentId: "",
+      streaming: false,
+      configCollapsed: document.documentElement.dataset.configCollapsed === "true"
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const CONFIG_COLLAPSE_KEY = "promptArena.configCollapsed";
+    const defaults = {
+      name: $("name").value,
+      goal: $("goal").value,
+      promptA: $("promptA").value,
+      promptB: $("promptB").value,
+      inputPrompt: $("currentInput").value,
+      temperature: $("temperature").value,
+      maxTokens: $("maxTokens").value
+    };
+
+    function setStatus(id, message, type = "") {
+      const el = $(id);
+      el.textContent = message;
+      el.className = `status ${type}`;
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      const text = await response.text();
+      let data;
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { detail: text }; }
+      if (!response.ok) {
+        throw new Error(data.detail || `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function renderInlineMarkdown(value) {
+      return value
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+        .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+        .replace(/_([^_]+)_/g, "<em>$1</em>")
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+    }
+
+    function winnerClass(winner) {
+      const normalized = String(winner || "").toLowerCase();
+      if (normalized === "a") return "winner-a";
+      if (normalized === "b") return "winner-b";
+      if (normalized === "tie") return "winner-tie";
+      if (normalized === "neither") return "winner-neither";
+      return "winner-neither";
+    }
+
+    function winnerLabel(winner) {
+      const normalized = String(winner || "").toLowerCase();
+      if (normalized === "a") return "A";
+      if (normalized === "b") return "B";
+      if (normalized === "tie") return "持平";
+      if (normalized === "neither") return "都不好";
+      return "未给出";
+    }
+
+    function renderSuggestions(suggestions) {
+      if (Array.isArray(suggestions)) {
+        const items = suggestions.filter(item => String(item ?? "").trim());
+        if (!items.length) return "";
+        return `<div class="suggestions-box"><h3>优化建议</h3><ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`;
+      }
+
+      const text = String(suggestions ?? "").trim();
+      if (!text) return "";
+      return `<div class="suggestions-box"><h3>优化建议</h3><p>${escapeHtml(text)}</p></div>`;
+    }
+
+    function hasSuggestions(suggestions) {
+      if (Array.isArray(suggestions)) {
+        return suggestions.some(item => String(item ?? "").trim());
+      }
+      return Boolean(String(suggestions ?? "").trim());
+    }
+
+    function scoreClass(side, scoreA, scoreB) {
+      const a = Number(scoreA);
+      const b = Number(scoreB);
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return "";
+      if (side === "A" && a > b) return " score-high";
+      if (side === "B" && b > a) return " score-high";
+      return "";
+    }
+
+    function estimateOutputTokens(text) {
+      const normalized = String(text || "").trim();
+      if (!normalized) return 0;
+      const cjkChars = (normalized.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+      const nonCjk = normalized.replace(/[\u3400-\u9fff\uf900-\ufaff]/g, " ");
+      const words = (nonCjk.match(/[A-Za-z0-9_]+|[^\sA-Za-z0-9_]/g) || []).length;
+      return Math.max(1, Math.round(cjkChars * 0.75 + words * 0.75));
+    }
+
+    function outputLength(text) {
+      return Array.from(String(text || "")).length;
+    }
+
+    function renderOutputMeta(text) {
+      if (!text) return "";
+      return `<div class="output-meta">输出 Token：约 ${estimateOutputTokens(text)} · 回复长度：${outputLength(text)} 字符</div>`;
+    }
+
+    function renderTable(lines) {
+      const cells = line => line.trim().replace(/^\||\|$/g, "").split("|").map(cell => renderInlineMarkdown(cell.trim()));
+      const headers = cells(lines[0]);
+      const rows = lines.slice(2).map(cells);
+      return `<table><thead><tr>${headers.map(cell => `<th>${cell}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    }
+
+    function renderMarkdown(markdown) {
+      const codeBlocks = [];
+      let text = escapeHtml(markdown || "");
+      text = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        const index = codeBlocks.length;
+        codeBlocks.push(`<pre><code>${code}</code></pre>`);
+        return `@@CODEBLOCK_${index}@@`;
+      });
+
+      const blocks = text.split(/\n{2,}/);
+      const html = blocks.map(block => {
+        const trimmed = block.trim();
+        if (!trimmed) return "";
+        if (/^@@CODEBLOCK_\d+@@$/.test(trimmed)) return trimmed;
+        const lines = trimmed.split(/\n/);
+
+        if (lines.length >= 2 && /^\s*\|.+\|\s*$/.test(lines[0]) && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[1])) {
+          return renderTable(lines);
+        }
+
+        const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
+        if (heading) {
+          const level = heading[1].length;
+          return `<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`;
+        }
+
+        if (lines.every(line => /^\s*[-*+]\s+/.test(line))) {
+          return `<ul>${lines.map(line => `<li>${renderInlineMarkdown(line.replace(/^\s*[-*+]\s+/, ""))}</li>`).join("")}</ul>`;
+        }
+
+        if (lines.every(line => /^\s*\d+\.\s+/.test(line))) {
+          return `<ol>${lines.map(line => `<li>${renderInlineMarkdown(line.replace(/^\s*\d+\.\s+/, ""))}</li>`).join("")}</ol>`;
+        }
+
+        if (lines.every(line => /^\s*&gt;\s?/.test(line))) {
+          const quote = lines.map(line => line.replace(/^\s*&gt;\s?/, "")).join("<br>");
+          return `<blockquote>${renderInlineMarkdown(quote)}</blockquote>`;
+        }
+
+        return `<p>${renderInlineMarkdown(trimmed).replace(/\n/g, "<br>")}</p>`;
+      }).join("");
+
+      return html.replace(/@@CODEBLOCK_(\d+)@@/g, (_, index) => codeBlocks[Number(index)] || "");
+    }
+
+    function experimentPayload() {
+      return {
+        id: state.experiment?.id,
+        name: $("name").value,
+        goal: $("goal").value,
+        promptA: $("promptA").value,
+        promptB: $("promptB").value,
+        inputPrompt: $("currentInput").value,
+        model: $("model").value || null,
+        temperature: Number($("temperature").value || 0.7),
+        maxTokens: Number($("maxTokens").value || 1000)
+      };
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "未知时间";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+    }
+
+    function shortText(value, max = 48) {
+      const text = String(value ?? "").replace(/\s+/g, " ").trim();
+      if (text.length <= max) return text;
+      return `${text.slice(0, Math.max(0, max - 1))}…`;
+    }
+
+    function currentRound() {
+      return state.rounds.find(round => round.roundId === state.currentRoundId) || null;
+    }
+
+    function currentRun() {
+      const round = currentRound();
+      return round?.runs?.find(run => run.runId === state.currentRunId) || null;
+    }
+
+    function latestRound() {
+      return state.rounds[state.rounds.length - 1] || null;
+    }
+
+    function latestRunLocation() {
+      for (let i = state.rounds.length - 1; i >= 0; i -= 1) {
+        const round = state.rounds[i];
+        const runs = round.runs || [];
+        if (runs.length) {
+          return { roundId: round.roundId, runId: runs[runs.length - 1].runId };
+        }
+      }
+      return null;
+    }
+
+    function hasRun(roundId, runId) {
+      return state.rounds.some(round =>
+        round.roundId === roundId && (round.runs || []).some(run => run.runId === runId)
+      );
+    }
+
+    function runInput(run, round) {
+      if (!run) return round?.inputPrompt || "";
+      return run.inputPrompt ?? run.userInput ?? round?.inputPrompt ?? "";
+    }
+
+    function runIndexValue(run) {
+      const value = Number(run?.index || 0);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function conversationTurnsForRun(round, run) {
+      if (!round || !run) return [];
+      if (Array.isArray(run.conversationTurns)) {
+        return run.conversationTurns;
+      }
+      const currentIndex = runIndexValue(run);
+      return [...(round.runs || [])]
+        .sort((a, b) => runIndexValue(a) - runIndexValue(b))
+        .filter(item => !currentIndex || runIndexValue(item) < currentIndex)
+        .map(item => ({
+          runId: item.runId,
+          index: item.index,
+          status: item.status || "",
+          inputPrompt: runInput(item, round),
+          outputA: item.outputA || "",
+          outputB: item.outputB || ""
+        }));
+    }
+
+    function renderConversationMessage(label, content, options = {}) {
+      const text = String(content ?? "");
+      const body = text.trim()
+        ? (options.markdown ? renderMarkdown(text) : `<pre>${escapeHtml(text)}</pre>`)
+        : '<div class="muted small">（空）</div>';
+      const markdownClass = options.markdown ? " markdown-body" : "";
+      const roleClass = options.roleClass ? ` ${options.roleClass}` : "";
+      return `
+        <div class="conversation-message">
+          <div class="conversation-role${roleClass}">${escapeHtml(label)}</div>
+          <div class="conversation-content${markdownClass}">${body}</div>
+        </div>
+      `;
+    }
+
+    function renderConversationTrace() {
+      const container = $("conversationTrace");
+      const meta = $("conversationMeta");
+      if (!container) return;
+
+      const round = currentRound();
+      const run = currentRun();
+      if (!round || !run) {
+        container.innerHTML = '<div class="conversation-empty muted small">请选择一次生成记录</div>';
+        if (meta) meta.textContent = "尚未选择生成";
+        return;
+      }
+
+      const turns = conversationTurnsForRun(round, run);
+      if (meta) {
+        meta.textContent = `第 ${round.index || ""} 轮 / 截至第 ${run.index || ""} 次 · ${turns.length} 次往返`;
+      }
+      if (!turns.length) {
+        container.innerHTML = '<div class="conversation-empty muted small">当前记录暂无对话链</div>';
+        return;
+      }
+
+      container.innerHTML = turns.map(turn => {
+        const isCurrent = String(turn.runId || "") === String(run.runId || "")
+          || (turn.runId == null && runIndexValue(turn) === runIndexValue(run));
+        const status = turn.status ? ` · ${escapeHtml(turn.status)}` : "";
+        const currentLabel = isCurrent ? " · 当前选中" : "";
+        return `
+          <details class="conversation-turn"${isCurrent ? " open" : ""}>
+            <summary>
+              <span class="conversation-summary-copy">
+                <span class="conversation-summary-title">第 ${escapeHtml(turn.index ?? "")} 次往返${currentLabel}${status}</span>
+                <span class="conversation-summary-input">${escapeHtml(shortText(turn.inputPrompt || "空输入", 72))}</span>
+              </span>
+            </summary>
+            <div class="conversation-body">
+              ${renderConversationMessage("User", turn.inputPrompt)}
+              <div class="conversation-assistant-grid">
+                ${renderConversationMessage("Assistant A", turn.outputA, { markdown: true, roleClass: "assistant-a" })}
+                ${renderConversationMessage("Assistant B", turn.outputB, { markdown: true, roleClass: "assistant-b" })}
+              </div>
+            </div>
+          </details>
+        `;
+      }).join("");
+    }
+
+    function roundPromptsMatchEditor(round) {
+      return round
+        && round.promptA === $("promptA").value
+        && round.promptB === $("promptB").value;
+    }
+
+    function fillExperimentFields(experiment) {
+      if (!experiment) return;
+      $("name").value = experiment.name || "";
+      $("goal").value = experiment.goal || "";
+      $("promptA").value = experiment.promptA || "";
+      $("promptB").value = experiment.promptB || "";
+      $("currentInput").value = experiment.inputPrompt || "";
+      $("model").value = experiment.model || state.defaultModel || "";
+      const params = experiment.params || {};
+      $("temperature").value = params.temperature ?? $("temperature").value;
+      $("maxTokens").value = params.maxTokens ?? $("maxTokens").value;
+    }
+
+    function applyExperimentPayload(data, options = {}) {
+      const previousRoundId = state.currentRoundId;
+      const previousRunId = state.currentRunId;
+      const preserveSelection = options.preserveSelection !== false;
+      state.experiment = data.experiment;
+      state.rounds = data.rounds || [];
+      const storageDir = state.experiment?.storageDir ? ` · ${state.experiment.storageDir}` : "";
+      $("experimentId").textContent = state.experiment?.id ? `${state.experiment.id}${storageDir}` : "未保存实验";
+      fillExperimentFields(state.experiment);
+
+      if (preserveSelection && previousRoundId && previousRunId && hasRun(previousRoundId, previousRunId)) {
+        selectRun(previousRoundId, previousRunId, false);
+        renderExperimentList();
+        return;
+      }
+
+      if (options.selectLatestRun) {
+        const latestRun = latestRunLocation();
+        if (latestRun) {
+          selectRun(latestRun.roundId, latestRun.runId, false);
+          renderExperimentList();
+          return;
+        }
+        state.currentRoundId = latestRound()?.roundId || "";
+        state.currentRunId = "";
+        clearCurrentRunDisplay();
+      } else if (!state.currentRoundId && state.rounds.length) {
+        state.currentRoundId = latestRound().roundId;
+      }
+      renderConversationTrace();
+      renderHistory();
+      renderExperimentList();
+    }
+
+    async function loadExperimentList(autoSelectLatest = false) {
+      setStatus("experimentListStatus", "正在加载实验备份...");
+      try {
+        const data = await api("/api/experiments");
+        state.experiments = data.experiments || [];
+        renderExperimentList();
+        setStatus("experimentListStatus", state.experiments.length ? "" : "暂无已保存实验");
+        if (autoSelectLatest && state.experiments.length && !state.experiment?.id) {
+          await selectExperiment(state.experiments[0].id, false);
+        }
+        return state.experiments;
+      } catch (error) {
+        setStatus("experimentListStatus", error.message, "error");
+        return [];
+      }
+    }
+
+    function renderExperimentList() {
+      const container = $("experimentList");
+      if (!container) return;
+      container.innerHTML = "";
+      if (!state.experiments.length) {
+        container.innerHTML = '<div class="muted small">暂无已保存实验</div>';
+        return;
+      }
+
+      state.experiments.forEach(experiment => {
+        const button = document.createElement("button");
+        const active = experiment.id === state.experiment?.id;
+        button.className = `experiment-backup ${active ? "active" : ""}`;
+        button.disabled = state.loadingExperimentId === experiment.id || state.streaming;
+        button.title = `${experiment.storageDir || experiment.id}\n${experiment.goal || ""}`;
+        button.innerHTML = `
+          <span class="backup-title">${escapeHtml(shortText(experiment.name || "未命名实验", 42))}</span>
+          <span class="backup-meta">${escapeHtml(formatDateTime(experiment.updatedAt))} · ${experiment.roundCount || 0} 轮 · ${experiment.runCount || 0} 次</span>
+          <span class="backup-goal">${escapeHtml(shortText(experiment.goal || "未填写实验目标", 54))}</span>
+          <span class="backup-dir">${escapeHtml(shortText(experiment.storageDir || experiment.id, 54))}</span>
+        `;
+        button.onclick = () => selectExperiment(experiment.id);
+        container.appendChild(button);
+      });
+    }
+
+    function setConfigCollapsed(isCollapsed, options = {}) {
+      const persist = options.persist !== false;
+      state.configCollapsed = isCollapsed;
+      $("configBody").classList.toggle("collapsed", isCollapsed);
+      $("toggleConfig").textContent = isCollapsed ? "展开" : "收起";
+      $("toggleConfig").setAttribute("aria-expanded", String(!isCollapsed));
+      if (isCollapsed) {
+        document.documentElement.dataset.configCollapsed = "true";
+      } else {
+        delete document.documentElement.dataset.configCollapsed;
+      }
+      if (persist) {
+        try {
+          localStorage.setItem(CONFIG_COLLAPSE_KEY, String(isCollapsed));
+        } catch {
+          // localStorage can be unavailable in locked-down browser contexts.
+        }
+      }
+    }
+
+    function newExperiment() {
+      if (state.streaming) return;
+      state.experiment = null;
+      state.rounds = [];
+      state.currentRoundId = "";
+      state.currentRunId = "";
+      state.outputA = "";
+      state.outputB = "";
+      state.evaluation = null;
+      state.humanChoice = "";
+      state.errors = [];
+      $("name").value = defaults.name;
+      $("goal").value = defaults.goal;
+      $("promptA").value = defaults.promptA;
+      $("promptB").value = defaults.promptB;
+      $("currentInput").value = defaults.inputPrompt;
+      $("model").value = state.defaultModel || "";
+      $("temperature").value = defaults.temperature;
+      $("maxTokens").value = defaults.maxTokens;
+      $("experimentId").textContent = "未保存实验";
+      clearCurrentRunDisplay();
+      renderHistory();
+      renderExperimentList();
+      setConfigCollapsed(false);
+      setStatus("configStatus", "已开始新实验，保存后会创建新备份", "ok");
+      setStatus("runStatus", "");
+    }
+
+    async function selectExperiment(experimentId, showStatus = true) {
+      if (!experimentId || state.loadingExperimentId || state.streaming) return;
+      state.loadingExperimentId = experimentId;
+      renderExperimentList();
+      if (showStatus) setStatus("configStatus", "正在加载实验备份...");
+      try {
+        const data = await api(`/api/experiments/${experimentId}`);
+        state.currentRoundId = "";
+        state.currentRunId = "";
+        applyExperimentPayload(data, { preserveSelection: false, selectLatestRun: true });
+        if (showStatus) setStatus("configStatus", "实验备份已加载", "ok");
+      } catch (error) {
+        if (showStatus) setStatus("configStatus", error.message, "error");
+      } finally {
+        state.loadingExperimentId = "";
+        renderExperimentList();
+      }
+    }
+
+    async function loadConfig() {
+      try {
+        const data = await api("/api/config");
+        state.defaultModel = data.defaultModel || "";
+        if (state.defaultModel) {
+          $("model").placeholder = state.defaultModel;
+          if (!$("model").value) {
+            $("model").value = state.defaultModel;
+          }
+        }
+      } catch (error) {
+        setStatus("configStatus", error.message, "error");
+      }
+    }
+
+    async function saveExperiment() {
+      setStatus("configStatus", "正在保存实验...");
+      try {
+        const data = await api("/api/experiments", {
+          method: "POST",
+          body: JSON.stringify(experimentPayload())
+        });
+        applyExperimentPayload(data, { preserveSelection: true });
+        await loadExperimentList(false);
+        setStatus("configStatus", "实验已保存", "ok");
+        return true;
+      } catch (error) {
+        setStatus("configStatus", error.message, "error");
+        return false;
+      }
+    }
+
+    async function fetchExperiment(selectCurrent = false) {
+      if (!state.experiment?.id) return;
+      const data = await api(`/api/experiments/${state.experiment.id}`);
+      applyExperimentPayload(data, { preserveSelection: true });
+      if (selectCurrent && state.currentRoundId && state.currentRunId) {
+        selectRun(state.currentRoundId, state.currentRunId, false);
+      }
+    }
+
+    async function createRound(inputOverride = null) {
+      const promptA = $("promptA").value;
+      const promptB = $("promptB").value;
+      const inputPrompt = typeof inputOverride === "string" ? inputOverride : $("currentInput").value;
+      const saved = await saveExperiment();
+      if (!saved || !state.experiment?.id) return null;
+      setStatus("runStatus", "正在创建新迭代轮...");
+      try {
+        const data = await api("/api/rounds", {
+          method: "POST",
+          body: JSON.stringify({
+            experimentId: state.experiment.id,
+            promptA,
+            promptB,
+            inputPrompt
+          })
+        });
+        applyExperimentPayload({ experiment: data.experiment, rounds: data.rounds });
+        await loadExperimentList(false);
+        state.currentRoundId = data.round.roundId;
+        state.currentRunId = "";
+        clearCurrentRunDisplay();
+        renderHistory();
+        setStatus("runStatus", `已创建第 ${data.round.index} 轮`, "ok");
+        return data.round;
+      } catch (error) {
+        setStatus("runStatus", error.message, "error");
+        return null;
+      }
+    }
+
+    async function ensureRoundForGenerate(inputPrompt) {
+      if (!state.experiment?.id) {
+        const saved = await saveExperiment();
+        if (!saved) return null;
+      }
+
+      if (!state.currentRoundId) {
+        return await createRound(inputPrompt);
+      }
+
+      const round = currentRound();
+      if (!round) {
+        return await createRound(inputPrompt);
+      }
+
+      if (!roundPromptsMatchEditor(round)) {
+        setStatus("runStatus", "当前系统 Prompt 已修改，请先点击“新建迭代轮”。", "error");
+        return null;
+      }
+      return round;
+    }
+
+    function clearCurrentRunDisplay() {
+      state.outputA = "";
+      state.outputB = "";
+      state.evaluation = null;
+      state.humanChoice = "";
+      state.errors = [];
+      $("outputA").textContent = "等待生成 A 输出";
+      $("outputA").classList.add("muted");
+      $("outputB").textContent = "等待生成 B 输出";
+      $("outputB").classList.add("muted");
+      $("scoreA").textContent = "";
+      $("scoreA").className = "";
+      $("scoreB").textContent = "";
+      $("scoreB").className = "";
+      $("humanNote").value = "";
+      $("evaluationSummary").textContent = "尚未评价";
+      $("evaluationSummary").className = "muted";
+      $("evaluationSuggestions").innerHTML = "";
+      $("dimensions").innerHTML = "";
+      $("evaluationRaw").textContent = "{}";
+      document.querySelectorAll(".choice").forEach(btn => btn.classList.remove("active"));
+      renderConversationTrace();
+    }
+
+    function renderOutputSide(side) {
+      const id = side === "A" ? "outputA" : "outputB";
+      const text = side === "A" ? state.outputA : state.outputB;
+      $(id).innerHTML = text ? `${renderMarkdown(text)}${renderOutputMeta(text)}` : "无输出";
+      $(id).classList.toggle("muted", !text);
+    }
+
+    function renderOutputs() {
+      renderOutputSide("A");
+      renderOutputSide("B");
+    }
+
+    function setStreaming(isStreaming) {
+      state.streaming = isStreaming;
+      $("generateBoth").disabled = isStreaming;
+      $("createRound").disabled = isStreaming;
+      $("evaluate").disabled = isStreaming;
+      $("saveHumanChoice").disabled = isStreaming;
+      $("newExperiment").disabled = isStreaming;
+      renderExperimentList();
+    }
+
+    function handleStreamEvent(event) {
+      if (event.runId && !event.side) {
+        state.currentRunId = event.runId;
+      }
+      if (event.side === "A" && event.delta) {
+        state.outputA += event.delta;
+        renderOutputSide("A");
+      }
+      if (event.side === "B" && event.delta) {
+        state.outputB += event.delta;
+        renderOutputSide("B");
+      }
+      if (event.side && event.error) {
+        const message = `${event.side}: ${event.error}`;
+        state.errors.push(message);
+        setStatus("runStatus", message, "error");
+      }
+      if (event.done && !event.side && event.run) {
+        state.currentRunId = event.run.runId;
+      }
+    }
+
+    async function generateBoth() {
+      const inputPrompt = $("currentInput").value;
+      const round = await ensureRoundForGenerate(inputPrompt);
+      if (!round) return;
+
+      clearCurrentRunDisplay();
+      state.currentRoundId = round.roundId;
+      state.currentRunId = "";
+      setStatus("runStatus", `正在生成第 ${round.index} 轮的新记录...`);
+      setStreaming(true);
+
+      try {
+        const response = await fetch("/api/generate/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            experimentId: state.experiment.id,
+            roundId: round.roundId,
+            inputPrompt
+          })
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        if (!response.body) {
+          throw new Error("当前浏览器不支持流式读取");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            handleStreamEvent(JSON.parse(line));
+          }
+        }
+
+        buffer += decoder.decode();
+        if (buffer.trim()) {
+          handleStreamEvent(JSON.parse(buffer));
+        }
+
+        await fetchExperiment(true);
+        await loadExperimentList(false);
+        setStatus("runStatus", state.errors.length ? "生成完成，但存在错误" : "生成完成并已自动保存", state.errors.length ? "error" : "ok");
+      } catch (error) {
+        state.errors.push(error.message);
+        setStatus("runStatus", error.message, "error");
+      } finally {
+        setStreaming(false);
+      }
+    }
+
+    async function evaluate() {
+      if (!state.currentRunId) {
+        setStatus("runStatus", "请先生成或选择一条历史记录", "error");
+        return;
+      }
+      const saved = await saveExperiment();
+      if (!saved) return;
+      setStatus("runStatus", "正在请求 AI 评价...");
+      try {
+        const data = await api(`/api/runs/${state.currentRunId}/evaluate`, { method: "POST" });
+        state.evaluation = data.evaluation;
+        renderEvaluation();
+        await fetchExperiment(false);
+        await loadExperimentList(false);
+        renderHistory();
+        setStatus("runStatus", "AI 评价已写入当前记录", "ok");
+      } catch (error) {
+        state.errors.push(error.message);
+        setStatus("runStatus", error.message, "error");
+      }
+    }
+
+    function renderEvaluation() {
+      const ev = state.evaluation || {};
+      $("scoreA").textContent = ev.scoreA ? `得分：${ev.scoreA}` : "";
+      $("scoreA").className = ev.scoreA ? "side-score score-a" : "";
+      $("scoreB").textContent = ev.scoreB ? `得分：${ev.scoreB}` : "";
+      $("scoreB").className = ev.scoreB ? "side-score score-b" : "";
+      $("evaluationRaw").textContent = JSON.stringify(ev, null, 2);
+
+      const hasEvaluation = Boolean(ev.summary || ev.winner || hasSuggestions(ev.suggestions));
+      if (hasEvaluation) {
+        const cls = winnerClass(ev.winner);
+        $("evaluationSummary").className = `evaluation-box ${cls}`;
+        $("evaluationSummary").innerHTML = `
+          <div class="evaluation-title">
+            <span>AI 优胜方</span>
+            <span class="winner-badge ${cls}">${escapeHtml(winnerLabel(ev.winner))}</span>
+          </div>
+          <p class="evaluation-summary">${escapeHtml(ev.summary || "暂无总结")}</p>
+        `;
+        $("evaluationSuggestions").innerHTML = renderSuggestions(ev.suggestions);
+      } else {
+        $("evaluationSummary").textContent = "尚未评价";
+        $("evaluationSummary").className = "muted";
+        $("evaluationSuggestions").innerHTML = "";
+      }
+
+      const dimensions = ev.dimensions || {};
+      $("dimensions").innerHTML = "";
+      Object.entries(dimensions).forEach(([name, value]) => {
+        const div = document.createElement("div");
+        div.className = "metric";
+        const aClass = scoreClass("A", value.A, value.B);
+        const bClass = scoreClass("B", value.A, value.B);
+        div.innerHTML = `
+          <strong>${escapeHtml(name)}</strong>
+          <div class="metric-score-row">
+            <span class="score-pill score-a${aClass}">A: ${escapeHtml(value.A ?? "")}</span>
+            <span class="score-pill score-b${bClass}">B: ${escapeHtml(value.B ?? "")}</span>
+          </div>
+          <div class="small muted">${escapeHtml(value.reason ?? "")}</div>
+        `;
+        $("dimensions").appendChild(div);
+      });
+    }
+
+    function renderChoice() {
+      document.querySelectorAll(".choice").forEach(button => {
+        button.classList.toggle("active", button.dataset.choice === state.humanChoice);
+      });
+    }
+
+    async function saveHumanChoice() {
+      if (!state.currentRunId) {
+        setStatus("runStatus", "请先生成或选择一条历史记录", "error");
+        return;
+      }
+      setStatus("runStatus", "正在保存人工选择...");
+      try {
+        await api(`/api/runs/${state.currentRunId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            humanChoice: state.humanChoice,
+            humanNote: $("humanNote").value
+          })
+        });
+        await fetchExperiment(false);
+        await loadExperimentList(false);
+        renderHistory();
+        setStatus("runStatus", "人工选择已保存", "ok");
+      } catch (error) {
+        setStatus("runStatus", error.message, "error");
+      }
+    }
+
+    function selectRun(roundId, runId, updateStatus = true) {
+      const round = state.rounds.find(item => item.roundId === roundId);
+      const run = round?.runs?.find(item => item.runId === runId);
+      if (!round || !run) return;
+
+      state.currentRoundId = round.roundId;
+      state.currentRunId = run.runId;
+      $("promptA").value = round.promptA || "";
+      $("promptB").value = round.promptB || "";
+      $("currentInput").value = runInput(run, round);
+      state.outputA = run.outputA || "";
+      state.outputB = run.outputB || "";
+      state.evaluation = run.aiEvaluation || null;
+      state.humanChoice = run.humanChoice || "";
+      state.errors = run.errors || [];
+      $("humanNote").value = run.humanNote || "";
+      renderOutputs();
+      renderEvaluation();
+      renderChoice();
+      renderConversationTrace();
+      renderHistory();
+      if (updateStatus) {
+        setStatus("runStatus", `已恢复第 ${round.index} 轮 / 第 ${run.index} 次生成`, "ok");
+      }
+    }
+
+    function renderHistory() {
+      const container = $("history");
+      container.innerHTML = "";
+      if (!state.rounds.length) {
+        container.innerHTML = '<div class="muted small">暂无迭代轮。点击“同时生成”会自动创建第 1 轮。</div>';
+        return;
+      }
+
+      state.rounds.forEach(round => {
+        const box = document.createElement("div");
+        box.className = "history-round";
+
+        const title = document.createElement("h3");
+        title.textContent = `第 ${round.index} 轮 · ${round.runs?.length || 0} 次生成`;
+        box.appendChild(title);
+
+        if (!round.runs?.length) {
+          const empty = document.createElement("div");
+          empty.className = "small muted";
+          empty.textContent = "本轮暂无生成记录";
+          box.appendChild(empty);
+        } else {
+          round.runs.forEach(run => {
+            const button = document.createElement("button");
+            const choice = run.humanChoice ? ` · 人工 ${run.humanChoice}` : "";
+            const winner = run.aiEvaluation?.winner ? ` · AI ${run.aiEvaluation.winner}` : "";
+            const input = shortText(runInput(run, round) || "空输入", 24);
+            button.className = `history-run ${run.runId === state.currentRunId ? "active" : ""}`;
+            button.textContent = `第 ${run.index} 次 · ${input} · ${run.status || "saved"}${winner}${choice}`;
+            button.title = `${run.runId}\n${runInput(run, round)}`;
+            button.onclick = () => selectRun(round.roundId, run.runId);
+            box.appendChild(button);
+          });
+        }
+
+        container.appendChild(box);
+      });
+    }
+
+    function exportFile(ext) {
+      if (!state.experiment?.id) {
+        setStatus("configStatus", "请先保存实验", "error");
+        return;
+      }
+      window.location.href = `/api/export/${state.experiment.id}.${ext}`;
+    }
+
+    async function reloadExperiment() {
+      if (!state.experiment?.id) {
+        setStatus("configStatus", "当前还没有已保存实验", "error");
+        return;
+      }
+      try {
+        await fetchExperiment(true);
+        await loadExperimentList(false);
+        setStatus("configStatus", "实验已刷新", "ok");
+      } catch (error) {
+        setStatus("configStatus", error.message, "error");
+      }
+    }
+
+    document.querySelectorAll(".choice").forEach(button => {
+      button.onclick = () => {
+        state.humanChoice = button.dataset.choice;
+        renderChoice();
+      };
+    });
+
+    $("saveExperiment").onclick = saveExperiment;
+    $("newExperiment").onclick = newExperiment;
+    $("toggleConfig").onclick = () => setConfigCollapsed(!state.configCollapsed);
+    $("reloadExperiment").onclick = reloadExperiment;
+    $("createRound").onclick = () => createRound();
+    $("generateBoth").onclick = generateBoth;
+    $("evaluate").onclick = evaluate;
+    $("saveHumanChoice").onclick = saveHumanChoice;
+    $("exportJson").onclick = () => exportFile("json");
+    $("exportMd").onclick = () => exportFile("md");
+
+    async function init() {
+      setConfigCollapsed(state.configCollapsed, { persist: false });
+      await loadConfig();
+      renderConversationTrace();
+      renderHistory();
+      await loadExperimentList(true);
+    }
+
+    init();
+  </script>
+</body>
+</html>

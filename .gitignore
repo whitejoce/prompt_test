@@ -1,0 +1,16 @@
+# Whitelist mode: ignore everything unless explicitly allowed below.
+/*
+
+# Project metadata and docs.
+!/.gitignore
+!/pyproject.toml
+!/uv.lock
+!/README.md
+!/img/
+!/imgs/**
+
+# Project code.
+!/main.py
+
+!/static/
+!/static/**
