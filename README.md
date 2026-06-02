@@ -43,7 +43,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/whitejoce/prompt_test.git
 cd prompt_test
 ```
 
@@ -68,7 +68,7 @@ pip install fastapi "uvicorn[standard]" openai python-dotenv
 ```env
 OPENAI_API_KEY=your_api_key_here
 OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4.1-mini
+OPENAI_MODEL=gpt-5.5
 ```
 
 说明：
