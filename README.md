@@ -130,14 +130,3 @@ data/<实验名称>-<时间戳>/experiments.json
 | `PATCH` | `/api/runs/{run_id}` | 保存人工选择和备注 |
 | `GET` | `/api/export/{experiment_id}.json` | 导出 JSON |
 | `GET` | `/api/export/{experiment_id}.md` | 导出 Markdown |
-
-## 发布到 GitHub 前检查
-
-- 确认 `.env` 未被提交
-- 确认 `data/` 中的本地实验记录不包含敏感信息
-- 确认 `imgs/demo.png` 可以正常显示
-- 如需开源发布，请根据项目需要添加 `LICENSE`
-
-## License
-
-当前仓库未指定开源许可证。公开发布前请根据实际用途补充许可证文件。
