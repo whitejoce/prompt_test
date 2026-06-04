@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>系统提示词 A/B 试炼场</title>
+  <title>系统提示词 A/B 对比</title>
   <script>
     (() => {
       try {
@@ -27,11 +27,13 @@
       --danger: #b42318;
       --blue: #2458a6;
       --shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+      --chrome-height: 70px;
     }
 
     * { box-sizing: border-box; }
     body {
       margin: 0;
+      padding-top: var(--chrome-height);
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -40,10 +42,99 @@
     }
 
     header {
-      padding: 14px 22px;
+      display: flex;
+      justify-content: center;
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 20;
+      min-height: var(--chrome-height);
+      padding: 12px 22px;
       background: #263238;
       color: #fff;
       border-bottom: 3px solid var(--accent);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 24px;
+      width: 100%;
+      max-width: 1600px;
+      min-width: 0;
+    }
+
+    .title-lockup {
+      flex: 0 0 auto;
+      min-width: max-content;
+    }
+
+    .parameter-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 18px;
+      align-items: center;
+      flex: 1 1 auto;
+      justify-content: flex-start;
+      margin-left: 2%; /* 稍微偏左，但与标题保持适度呼吸感 */
+      min-width: 0;
+      padding: 0;
+      background: transparent;
+      border-bottom: 0;
+      color: #fff;
+    }
+
+    .parameter-chip {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      background: transparent;
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .parameter-chip.model-chip input {
+      width: 190px;
+    }
+
+    .parameter-chip span {
+      color: #f8fafc;
+    }
+
+    .parameter-chip input {
+      width: 68px;
+      height: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 4px;
+      padding: 3px 7px;
+      background: transparent;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .parameter-chip.parameter-chip-wide input {
+      width: 78px;
+    }
+
+    .parameter-chip input::placeholder {
+      color: #cbd5e1;
+    }
+
+    .parameter-chip input:focus {
+      outline: 0;
+      border-color: #71c6a6;
+      box-shadow: 0 0 0 2px rgba(31, 122, 90, 0.28);
     }
 
     h1 { margin: 0; font-size: 18px; font-weight: 650; }
@@ -53,7 +144,7 @@
     main {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(380px, 480px);
-      min-height: calc(100vh - 57px);
+      min-height: calc(100vh - var(--chrome-height));
     }
 
     section.workspace {
@@ -172,12 +263,16 @@
 
     .prompt-grid, .comparison {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .comparison {
       align-items: start;
+      min-width: 0;
+      width: 100%;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
     }
 
     .side {
@@ -186,6 +281,7 @@
       background: var(--surface);
       min-width: 0;
       overflow: hidden;
+      box-shadow: var(--shadow);
     }
 
     .side-title {
@@ -476,7 +572,7 @@
     .conversation-trace {
       display: grid;
       gap: 10px;
-      max-height: 560px;
+      max-height: 300px;
       overflow: auto;
     }
 
@@ -536,8 +632,9 @@
       display: block;
       max-width: 100%;
       overflow: hidden;
-      color: var(--muted);
-      font-size: 12px;
+      color: #344054;
+      font-size: 13px;
+      font-weight: 500;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -560,6 +657,10 @@
       font-weight: 800;
     }
 
+    .conversation-role.user {
+      color: #101828;
+    }
+
     .conversation-role.assistant-a {
       color: var(--accent-strong);
     }
@@ -576,6 +677,12 @@
       background: #f8fafc;
       padding: 10px;
       word-break: break-word;
+    }
+
+    .conversation-content.user {
+      background: #fff;
+      color: #101828;
+      font-size: 14px;
     }
 
     .conversation-content pre {
@@ -672,7 +779,25 @@
     }
 
     @media (max-width: 980px) {
-      main { grid-template-columns: 1fr; }
+      .header-inner {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .title-lockup {
+        text-align: center;
+      }
+
+      .parameter-strip {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
       aside {
         order: -1;
         border-left: 0;
@@ -685,12 +810,42 @@
   </style>
 </head>
 <body>
-  <header>
-    <h1>系统提示词 A/B 试炼场</h1>
+  <header id="topHeader">
+    <div class="header-inner">
+      <div class="title-lockup">
+        <h1>系统提示词 A/B 对比</h1>
+      </div>
+      <div class="parameter-strip" aria-label="模型与生成参数">
+        <label class="parameter-chip model-chip" for="model">
+          <span>模型:</span>
+          <input id="model" placeholder="默认读取 OPENAI_MODEL" data-label="模型" title="输入要使用的模型，例如 gpt-4o。留空则默认读取后端设置。">
+        </label>
+        <label class="parameter-chip parameter-chip-wide" for="maxTokens">
+          <span>最大 Token:</span>
+          <input id="maxTokens" type="number" min="1" step="1" placeholder="默认" inputmode="numeric" data-label="最大 Token" title="生成结果的最大 Token 数量。留空表示使用大模型厂默认设置。">
+        </label>
+        <label class="parameter-chip" for="temperature">
+          <span>采样温度:</span>
+          <input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="默认" inputmode="decimal" data-label="采样温度" title="控制输出的随机性，范围 0-2 (常用0-1)。值越高则更具创造力，越低越严谨。">
+        </label>
+        <label class="parameter-chip" for="topP">
+          <span>Top-p:</span>
+          <input id="topP" type="number" min="0" max="1" step="0.05" placeholder="默认" inputmode="decimal" data-label="Top-p" title="核采样(0-1)。与温度同为控制多样性的参数，通常建议二选一进行调整。">
+        </label>
+        <label class="parameter-chip" for="presencePenalty">
+          <span>存在惩罚:</span>
+          <input id="presencePenalty" type="number" min="-2" max="2" step="0.1" placeholder="默认" inputmode="decimal" data-label="存在惩罚" title="存在惩罚(-2到2)。正值可使模型更有可能转向新话题。">
+        </label>
+        <label class="parameter-chip" for="frequencyPenalty">
+          <span>频率惩罚:</span>
+          <input id="frequencyPenalty" type="number" min="-2" max="2" step="0.1" placeholder="默认" inputmode="decimal" data-label="频率惩罚" title="频率惩罚(-2到2)。正值可减少模型重复使用相同词句的频率。">
+        </label>
+      </div>
+    </div>
   </header>
 
   <main>
-    <section class="workspace">
+    <section id="workspace" class="workspace">
       <div class="panel">
         <h2>A/B 系统提示词</h2>
         <div class="prompt-grid">
@@ -707,13 +862,13 @@
 
       <div class="panel conversation-panel">
         <div class="panel-heading">
-          <h2>轮内对话记录</h2>
+          <h2 id="conversationTitle">第 - 次对话</h2>
           <span id="conversationMeta" class="small muted conversation-heading-meta">尚未选择生成</span>
         </div>
         <div id="conversationTrace" class="conversation-trace"></div>
       </div>
 
-      <div class="comparison">
+      <div id="replyDock" class="comparison">
         <div class="side">
           <div class="side-title"><span>Prompt A 输出</span><span id="scoreA"></span></div>
           <div id="outputA" class="output markdown-body muted">等待生成 A 输出</div>
@@ -789,18 +944,6 @@
           <input id="name" value="系统提示词对比实验">
           <label for="goal">实验目标</label>
           <textarea id="goal">比较两个系统提示词在同一个输入 Prompt 下的输出质量。</textarea>
-          <div class="row">
-            <div>
-              <label for="model">模型</label>
-              <input id="model" placeholder="默认读取 OPENAI_MODEL">
-            </div>
-            <div>
-              <label for="temperature">Temperature</label>
-              <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7">
-            </div>
-          </div>
-          <label for="maxTokens">Max Tokens</label>
-          <input id="maxTokens" type="number" min="128" step="128" value="1000">
           <p id="configStatus" class="status"></p>
         </div>
       </div>
@@ -838,20 +981,25 @@
 
     const $ = (id) => document.getElementById(id);
     const CONFIG_COLLAPSE_KEY = "promptArena.configCollapsed";
+    const PARAM_INPUT_IDS = ["maxTokens", "temperature", "topP", "presencePenalty", "frequencyPenalty"];
     const defaults = {
       name: $("name").value,
       goal: $("goal").value,
       promptA: $("promptA").value,
       promptB: $("promptB").value,
-      inputPrompt: $("currentInput").value,
-      temperature: $("temperature").value,
-      maxTokens: $("maxTokens").value
+      inputPrompt: $("currentInput").value
     };
 
     function setStatus(id, message, type = "") {
       const el = $(id);
       el.textContent = message;
       el.className = `status ${type}`;
+    }
+
+    function syncHeaderHeight() {
+      const header = $("topHeader");
+      if (!header) return;
+      document.documentElement.style.setProperty("--chrome-height", `${header.offsetHeight}px`);
     }
 
     async function api(path, options = {}) {
@@ -1003,6 +1151,36 @@
       return html.replace(/@@CODEBLOCK_(\d+)@@/g, (_, index) => codeBlocks[Number(index)] || "");
     }
 
+    function optionalNumber(id) {
+      const raw = String($(id).value || "").trim();
+      if (!raw) return null;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : null;
+    }
+
+    function optionalInteger(id) {
+      const value = optionalNumber(id);
+      return value === null ? null : Math.trunc(value);
+    }
+
+    function setParameterValue(id, value) {
+      $(id).value = value ?? "";
+    }
+
+    function validateParameterInputs() {
+      for (const id of PARAM_INPUT_IDS) {
+        const input = $(id);
+        if (!String(input.value || "").trim()) continue;
+        if (!input.checkValidity()) {
+          const label = input.dataset.label || id;
+          setStatus("configStatus", `${label} 参数超出范围`, "error");
+          input.focus();
+          return false;
+        }
+      }
+      return true;
+    }
+
     function experimentPayload() {
       return {
         id: state.experiment?.id,
@@ -1012,8 +1190,11 @@
         promptB: $("promptB").value,
         inputPrompt: $("currentInput").value,
         model: $("model").value || null,
-        temperature: Number($("temperature").value || 0.7),
-        maxTokens: Number($("maxTokens").value || 1000)
+        temperature: optionalNumber("temperature"),
+        topP: optionalNumber("topP"),
+        maxTokens: optionalInteger("maxTokens"),
+        presencePenalty: optionalNumber("presencePenalty"),
+        frequencyPenalty: optionalNumber("frequencyPenalty")
       };
     }
 
@@ -1036,6 +1217,10 @@
       const text = String(value ?? "").replace(/\s+/g, " ").trim();
       if (text.length <= max) return text;
       return `${text.slice(0, Math.max(0, max - 1))}…`;
+    }
+
+    function historyInputLabel(value) {
+      return shortText(value || "空输入", 36);
     }
 
     function currentRound() {
@@ -1080,21 +1265,32 @@
 
     function conversationTurnsForRun(round, run) {
       if (!round || !run) return [];
-      if (Array.isArray(run.conversationTurns)) {
-        return run.conversationTurns;
-      }
+
       const currentIndex = runIndexValue(run);
-      return [...(round.runs || [])]
-        .sort((a, b) => runIndexValue(a) - runIndexValue(b))
-        .filter(item => !currentIndex || runIndexValue(item) < currentIndex)
-        .map(item => ({
-          runId: item.runId,
-          index: item.index,
-          status: item.status || "",
-          inputPrompt: runInput(item, round),
-          outputA: item.outputA || "",
-          outputB: item.outputB || ""
-        }));
+      let turns = [];
+
+      if (Array.isArray(run.conversationTurns)) {
+        turns = run.conversationTurns;
+      } else {
+        turns = [...(round.runs || [])]
+          .sort((a, b) => runIndexValue(a) - runIndexValue(b))
+          .filter(item => !currentIndex || runIndexValue(item) <= currentIndex)
+          .map(item => ({
+            runId: item.runId,
+            index: item.index,
+            status: item.status || "",
+            inputPrompt: runInput(item, round),
+            outputA: item.outputA || "",
+            outputB: item.outputB || ""
+          }));
+      }
+
+      // 过滤掉当前这一轮（当前轮的输出仅在底部的 comparison 中展示，避免重复）
+      return turns.filter(turn => {
+        const isCurrent = String(turn.runId || "") === String(run.runId || "")
+          || (turn.runId == null && runIndexValue(turn) === currentIndex);
+        return !isCurrent;
+      });
     }
 
     function renderConversationMessage(label, content, options = {}) {
@@ -1104,10 +1300,11 @@
         : '<div class="muted small">（空）</div>';
       const markdownClass = options.markdown ? " markdown-body" : "";
       const roleClass = options.roleClass ? ` ${options.roleClass}` : "";
+      const contentClass = options.contentClass ? ` ${options.contentClass}` : "";
       return `
         <div class="conversation-message">
           <div class="conversation-role${roleClass}">${escapeHtml(label)}</div>
-          <div class="conversation-content${markdownClass}">${body}</div>
+          <div class="conversation-content${markdownClass}${contentClass}">${body}</div>
         </div>
       `;
     }
@@ -1115,6 +1312,7 @@
     function renderConversationTrace() {
       const container = $("conversationTrace");
       const meta = $("conversationMeta");
+      const title = $("conversationTitle");
       if (!container) return;
 
       const round = currentRound();
@@ -1122,12 +1320,16 @@
       if (!round || !run) {
         container.innerHTML = '<div class="conversation-empty muted small">请选择一次生成记录</div>';
         if (meta) meta.textContent = "尚未选择生成";
+        if (title) title.textContent = "第 - 次对话";
         return;
       }
 
       const turns = conversationTurnsForRun(round, run);
+      if (title) {
+        title.textContent = `当前是第 ${run.index || ""} 次对话`;
+      }
       if (meta) {
-        meta.textContent = `第 ${round.index || ""} 轮 / 截至第 ${run.index || ""} 次 · ${turns.length} 次往返`;
+        meta.textContent = ` ${turns.length} 次往返`;
       }
       if (!turns.length) {
         container.innerHTML = '<div class="conversation-empty muted small">当前记录暂无对话链</div>';
@@ -1135,20 +1337,16 @@
       }
 
       container.innerHTML = turns.map(turn => {
-        const isCurrent = String(turn.runId || "") === String(run.runId || "")
-          || (turn.runId == null && runIndexValue(turn) === runIndexValue(run));
-        const status = turn.status ? ` · ${escapeHtml(turn.status)}` : "";
-        const currentLabel = isCurrent ? " · 当前选中" : "";
         return `
-          <details class="conversation-turn"${isCurrent ? " open" : ""}>
+          <details class="conversation-turn">
             <summary>
               <span class="conversation-summary-copy">
-                <span class="conversation-summary-title">第 ${escapeHtml(turn.index ?? "")} 次往返${currentLabel}${status}</span>
+                <span class="conversation-summary-title">第 ${escapeHtml(turn.index ?? "")} 次对话</span>
                 <span class="conversation-summary-input">${escapeHtml(shortText(turn.inputPrompt || "空输入", 72))}</span>
               </span>
             </summary>
             <div class="conversation-body">
-              ${renderConversationMessage("User", turn.inputPrompt)}
+              ${renderConversationMessage("User", turn.inputPrompt, { roleClass: "user", contentClass: "user" })}
               <div class="conversation-assistant-grid">
                 ${renderConversationMessage("Assistant A", turn.outputA, { markdown: true, roleClass: "assistant-a" })}
                 ${renderConversationMessage("Assistant B", turn.outputB, { markdown: true, roleClass: "assistant-b" })}
@@ -1174,8 +1372,11 @@
       $("currentInput").value = experiment.inputPrompt || "";
       $("model").value = experiment.model || state.defaultModel || "";
       const params = experiment.params || {};
-      $("temperature").value = params.temperature ?? $("temperature").value;
-      $("maxTokens").value = params.maxTokens ?? $("maxTokens").value;
+      setParameterValue("maxTokens", params.maxTokens ?? params.max_tokens);
+      setParameterValue("temperature", params.temperature);
+      setParameterValue("topP", params.topP ?? params.top_p);
+      setParameterValue("presencePenalty", params.presencePenalty ?? params.presence_penalty);
+      setParameterValue("frequencyPenalty", params.frequencyPenalty ?? params.frequency_penalty);
     }
 
     function applyExperimentPayload(data, options = {}) {
@@ -1292,8 +1493,7 @@
       $("promptB").value = defaults.promptB;
       $("currentInput").value = defaults.inputPrompt;
       $("model").value = state.defaultModel || "";
-      $("temperature").value = defaults.temperature;
-      $("maxTokens").value = defaults.maxTokens;
+      PARAM_INPUT_IDS.forEach(id => setParameterValue(id, ""));
       $("experimentId").textContent = "未保存实验";
       clearCurrentRunDisplay();
       renderHistory();
@@ -1338,6 +1538,7 @@
     }
 
     async function saveExperiment() {
+      if (!validateParameterInputs()) return false;
       setStatus("configStatus", "正在保存实验...");
       try {
         const data = await api("/api/experiments", {
@@ -1413,7 +1614,9 @@
         setStatus("runStatus", "当前系统 Prompt 已修改，请先点击“新建迭代轮”。", "error");
         return null;
       }
-      return round;
+      const saved = await saveExperiment();
+      if (!saved) return null;
+      return currentRound() || round;
     }
 
     function clearCurrentRunDisplay() {
@@ -1459,6 +1662,9 @@
       $("evaluate").disabled = isStreaming;
       $("saveHumanChoice").disabled = isStreaming;
       $("newExperiment").disabled = isStreaming;
+      PARAM_INPUT_IDS.forEach(id => {
+        $(id).disabled = isStreaming;
+      });
       renderExperimentList();
     }
 
@@ -1492,7 +1698,8 @@
       clearCurrentRunDisplay();
       state.currentRoundId = round.roundId;
       state.currentRunId = "";
-      setStatus("runStatus", `正在生成第 ${round.index} 轮的新记录...`);
+      const nextRunIndex = (round.runs?.length || 0) + 1;
+      setStatus("runStatus", `正在生成第 ${round.index} 轮 / 第 ${nextRunIndex} 次的新记录...`);
       setStreaming(true);
 
       try {
@@ -1693,9 +1900,9 @@
             const button = document.createElement("button");
             const choice = run.humanChoice ? ` · 人工 ${run.humanChoice}` : "";
             const winner = run.aiEvaluation?.winner ? ` · AI ${run.aiEvaluation.winner}` : "";
-            const input = shortText(runInput(run, round) || "空输入", 24);
+            const input = historyInputLabel(runInput(run, round));
             button.className = `history-run ${run.runId === state.currentRunId ? "active" : ""}`;
-            button.textContent = `第 ${run.index} 次 · ${input} · ${run.status || "saved"}${winner}${choice}`;
+            button.textContent = `第 ${run.index} 次 · ${input}${winner}${choice}`;
             button.title = `${run.runId}\n${runInput(run, round)}`;
             button.onclick = () => selectRun(round.roundId, run.runId);
             box.appendChild(button);
@@ -1747,6 +1954,12 @@
     $("exportMd").onclick = () => exportFile("md");
 
     async function init() {
+      syncHeaderHeight();
+      if ("ResizeObserver" in window) {
+        new ResizeObserver(syncHeaderHeight).observe($("topHeader"));
+      } else {
+        window.addEventListener("resize", syncHeaderHeight);
+      }
       setConfigCollapsed(state.configCollapsed, { persist: false });
       await loadConfig();
       renderConversationTrace();

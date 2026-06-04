@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import os
 import re
 import uuid
@@ -19,7 +20,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 load_dotenv()
 
@@ -33,8 +34,15 @@ STORE_LOCK = RLock()
 
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.5")
 DEFAULT_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+GENERATION_PARAM_API_NAMES = {
+    "temperature": "temperature",
+    "topP": "top_p",
+    "maxTokens": "max_tokens",
+    "presencePenalty": "presence_penalty",
+    "frequencyPenalty": "frequency_penalty",
+}
 
-app = FastAPI(title="系统提示词 A/B 试炼场")
+app = FastAPI(title="系统提示词 A/B 对比")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -46,8 +54,25 @@ class ExperimentIn(BaseModel):
     promptB: str = ""
     inputPrompt: str = ""
     model: str | None = None
-    temperature: float = 0.7
-    maxTokens: int = 1000
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    topP: float | None = Field(default=None, ge=0, le=1)
+    maxTokens: int | None = Field(default=None, ge=1)
+    presencePenalty: float | None = Field(default=None, ge=-2, le=2)
+    frequencyPenalty: float | None = Field(default=None, ge=-2, le=2)
+
+    @field_validator(
+        "temperature",
+        "topP",
+        "maxTokens",
+        "presencePenalty",
+        "frequencyPenalty",
+        mode="before",
+    )
+    @classmethod
+    def blank_param_to_none(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 
 class RoundIn(BaseModel):
@@ -249,16 +274,66 @@ def get_client() -> AsyncOpenAI:
     )
 
 
+def clean_generation_params(source: Any) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+    for key in GENERATION_PARAM_API_NAMES:
+        value = (
+            source.get(key) if isinstance(source, dict) else getattr(source, key, None)
+        )
+        if value is None or isinstance(value, bool):
+            continue
+        if key == "maxTokens":
+            try:
+                normalized = int(value)
+            except (TypeError, ValueError):
+                continue
+            if normalized > 0:
+                params[key] = normalized
+            continue
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(normalized):
+            params[key] = normalized
+    return params
+
+
+def model_request_params(params: dict[str, Any] | None) -> dict[str, Any]:
+    request_params: dict[str, Any] = {}
+    params = params or {}
+    for storage_key, api_key in GENERATION_PARAM_API_NAMES.items():
+        value = params.get(storage_key)
+        if value is None:
+            value = params.get(api_key)
+        if value is None or isinstance(value, bool):
+            continue
+        if storage_key == "maxTokens":
+            try:
+                normalized = int(value)
+            except (TypeError, ValueError):
+                continue
+            if normalized > 0:
+                request_params[api_key] = normalized
+            continue
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(normalized):
+            request_params[api_key] = normalized
+    return request_params
+
+
 async def call_model(
-    messages: list[dict[str, str]], model: str, temperature: float, max_tokens: int
+    messages: list[dict[str, str]], model: str, params: dict[str, Any] | None = None
 ) -> str:
     client = get_client()
     try:
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            **model_request_params(params),
         )
     except Exception as exc:
         raise HTTPException(
@@ -268,15 +343,14 @@ async def call_model(
 
 
 async def stream_model(
-    messages: list[dict[str, str]], model: str, temperature: float, max_tokens: int
+    messages: list[dict[str, str]], model: str, params: dict[str, Any] | None = None
 ):
     client = get_client()
     try:
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            **model_request_params(params),
             stream=True,
         )
     except Exception as exc:
@@ -715,16 +789,14 @@ async def get_experiment(experiment_id: str) -> dict[str, Any]:
 async def upsert_experiment(payload: ExperimentIn) -> dict[str, Any]:
     timestamp = now_iso()
     experiment_id = payload.id or new_id("exp")
+    params = clean_generation_params(payload)
+    params["baseUrl"] = os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL)
     incoming = {
         "id": experiment_id,
         "name": payload.name.strip() or "未命名实验",
         "goal": payload.goal.strip(),
         "model": payload.model or DEFAULT_MODEL,
-        "params": {
-            "temperature": payload.temperature,
-            "maxTokens": payload.maxTokens,
-            "baseUrl": os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL),
-        },
+        "params": params,
         "promptA": payload.promptA,
         "promptB": payload.promptB,
         "inputPrompt": payload.inputPrompt,
@@ -783,24 +855,20 @@ async def generate(payload: GenerateIn) -> dict[str, Any]:
 
     model = run.get("model") or DEFAULT_MODEL
     params = run.get("params", {})
-    temperature = float(params.get("temperature", 0.7))
-    max_tokens = int(params.get("maxTokens", 1000))
     output_a, output_b = await asyncio.gather(
         call_model(
             build_round_messages(
                 round_record.get("promptA", ""), round_record, run, "A"
             ),
             model,
-            temperature,
-            max_tokens,
+            params,
         ),
         call_model(
             build_round_messages(
                 round_record.get("promptB", ""), round_record, run, "B"
             ),
             model,
-            temperature,
-            max_tokens,
+            params,
         ),
     )
     completed = complete_run(run["runId"], output_a, output_b, [])
@@ -818,8 +886,6 @@ async def generate_stream(payload: GenerateIn) -> StreamingResponse:
 
     model = run.get("model") or DEFAULT_MODEL
     params = run.get("params", {})
-    temperature = float(params.get("temperature", 0.7))
-    max_tokens = int(params.get("maxTokens", 1000))
     prompt_a = round_record.get("promptA", "")
     prompt_b = round_record.get("promptB", "")
     run_id = run["runId"]
@@ -834,9 +900,7 @@ async def generate_stream(payload: GenerateIn) -> StreamingResponse:
         async def run_side(side: str, prompt: str) -> None:
             try:
                 messages = build_round_messages(prompt, round_record, run, side)
-                async for delta in stream_model(
-                    messages, model, temperature, max_tokens
-                ):
+                async for delta in stream_model(messages, model, params):
                     await queue.put({"side": side, "delta": delta})
                 await queue.put({"side": side, "done": True})
             except HTTPException as exc:
@@ -905,8 +969,14 @@ async def evaluate_run(run_id: str) -> dict[str, Any]:
     experiment, round_record, run, experiment_file = find_run_location(run_id)
     params = run.get("params", {})
     model = run.get("model") or experiment.get("model") or DEFAULT_MODEL
-    temperature = 0.2
-    max_tokens = min(int(params.get("maxTokens", 1000)), 1500)
+    judge_params: dict[str, Any] = {"temperature": 0.2}
+    if params.get("maxTokens") is not None:
+        try:
+            max_tokens = min(int(params.get("maxTokens")), 1500)
+        except (TypeError, ValueError):
+            max_tokens = 0
+        if max_tokens > 0:
+            judge_params["maxTokens"] = max_tokens
 
     experiment_goal = (experiment.get("goal") or "").strip() or "未填写"
     judge_prompt = f"""系统提示词 A/B 测试评审。请只输出 JSON，不要输出 Markdown。
@@ -933,8 +1003,7 @@ winner 只能是 "A"、"B"、"tie" 或 "neither"。scoreA 和 scoreB 是 1-10 �
             {"role": "user", "content": user_content},
         ],
         model,
-        temperature,
-        max_tokens,
+        judge_params,
     )
 
     timestamp = now_iso()
